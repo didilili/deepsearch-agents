@@ -1,7 +1,7 @@
 """
 提示词配置加载模块
 
-负责读取 prompt/prompts.yml 中的主智能体和子智能体配置
+负责读取 app/prompt/prompts.yml 中的主智能体和子智能体配置
 后续组装 DeepAgent 时，可以直接复用 main_agent_content 和 sub_agents_content
 """
 
@@ -23,9 +23,9 @@ def load_yaml(file_path: Path) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-# 当前文件位于 agent/prompts.py，parents[1] 即项目根目录 deepsearch-agents
-project_root_path = Path(__file__).parents[1]
-yaml_file_path = project_root_path / "prompt" / "prompts.yml"
+# 当前文件位于 app/agent/prompts.py，parents[1] 即 app 目录
+app_root_path = Path(__file__).parents[1]
+yaml_file_path = app_root_path / "prompt" / "prompts.yml"
 
 prompt_yaml_content = load_yaml(yaml_file_path)
 

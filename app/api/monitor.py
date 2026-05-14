@@ -12,7 +12,7 @@ from typing import Any, Optional
 
 from fastapi import WebSocket
 
-from api.context import get_thread_context
+from app.api.context import get_thread_context
 
 
 class ToolMonitor:
