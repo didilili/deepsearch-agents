@@ -12,7 +12,7 @@ from langchain_core.tools import tool
 from ragflow_sdk import RAGFlow
 
 from app.api.monitor import monitor
-from app.rawflow.rag_config import _load_ragflow_env
+from app.ragflow.rag_config import _load_ragflow_env
 
 # 模块级复用 RAGFlow 客户端，避免每次工具调用都重新初始化 SDK 对象
 api_key, base_url = _load_ragflow_env()
