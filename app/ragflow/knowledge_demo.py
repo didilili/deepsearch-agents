@@ -10,7 +10,7 @@ import os.path
 
 from ragflow_sdk import RAGFlow
 
-from app.rawflow.rag_config import _load_ragflow_env
+from app.ragflow.rag_config import _load_ragflow_env
 
 # RAGFlow SDK 的入口客户端，后续 Dataset、Chat、Session 操作都从这里发起
 api_key, base_url = _load_ragflow_env()
