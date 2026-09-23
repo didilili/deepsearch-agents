@@ -46,6 +46,29 @@ export default function App() {
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const streamRef = useRef<HTMLElement | null>(null);
   const session = useDeepAgentSession();
+  const [removingFilename, setRemovingFilename] = useState<string | null>(null);
+  const removingRef = useRef(false);
+
+  async function handleRemoveAttachment(filename: string) {
+    if (removingRef.current || session.isRunning || session.isUploading) {
+      return;
+    }
+    removingRef.current = true;
+    setRemovingFilename(filename);
+    try {
+      const response = await session.removeUploadedFile(filename);
+      if (response.work_copy === "kept_modified") {
+        message.info("附件已移除，修改过的工作文件已保留");
+      } else {
+        message.success("附件已移除");
+      }
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "移除附件失败");
+    } finally {
+      removingRef.current = false;
+      setRemovingFilename(null);
+    }
+  }
 
   useEffect(() => {
     setTurns((previous) => {
@@ -81,6 +104,7 @@ export default function App() {
   }, [turns]);
 
   async function handleSubmit() {
+    if (removingRef.current) return;
     const cleanQuery = query.trim();
     if (!cleanQuery) {
       message.warning("请输入研搜任务");
@@ -120,6 +144,7 @@ export default function App() {
   }
 
   async function handleUpload(items: UploadedItem[]) {
+    if (removingRef.current) return;
     try {
       const response = await session.uploadFiles(items);
       setStagedItems([]);
@@ -130,6 +155,7 @@ export default function App() {
   }
 
   function handleNewSession() {
+    if (removingRef.current) return;
     session.resetSession();
     setTurns([]);
     setQuery("");
@@ -241,10 +267,12 @@ export default function App() {
           onCancel={handleCancel}
           onNewSession={handleNewSession}
           onQueryChange={setQuery}
+          onRemoveAttachment={handleRemoveAttachment}
           onStagedItemsChange={setStagedItems}
           onSubmit={handleSubmit}
           onUpload={handleUpload}
           query={query}
+          removingFilename={removingFilename}
           stagedItems={stagedItems}
           uploadedItems={session.uploadedItems}
         />

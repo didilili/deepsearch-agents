@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cancelTask, listSessionFiles, startTask, uploadSessionFiles } from "../lib/api";
+import {
+  cancelTask,
+  listSessionFiles,
+  removeSessionFile,
+  startTask,
+  uploadSessionFiles
+} from "../lib/api";
 import { WS_BASE_URL } from "../lib/config";
 import { createThreadId, getStoredThreadId, storeThreadId } from "../lib/thread";
 import type {
@@ -283,6 +289,22 @@ export function useDeepAgentSession() {
     [threadId]
   );
 
+  const removeUploadedFile = useCallback(
+    async (filename: string) => {
+      if (isRunning || isUploading) {
+        throw new Error("任务执行或附件上传期间不能移除附件");
+      }
+
+      const response = await removeSessionFile(threadId, filename);
+      setUploadedItems((previous) =>
+        previous.filter((item) => item.name !== filename)
+      );
+      uploadedNameSetRef.current.delete(filename);
+      return response;
+    },
+    [isRunning, isUploading, threadId]
+  );
+
   const stats = useMemo(() => {
     const toolEvents = events.filter((event) => event.event === "tool_start").length;
     const assistantEvents = events.filter((event) => event.event === "assistant_call").length;
@@ -314,6 +336,7 @@ export function useDeepAgentSession() {
     submitTask,
     threadId,
     uploadFiles,
-    uploadedItems
+    uploadedItems,
+    removeUploadedFile
   };
 }

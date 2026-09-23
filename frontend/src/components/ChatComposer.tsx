@@ -21,6 +21,8 @@ interface ChatComposerProps {
   stagedItems: UploadedItem[];
   uploadedItems: UploadedItem[];
   onStagedItemsChange: (items: UploadedItem[]) => void;
+  onRemoveAttachment: (filename: string) => Promise<void>;
+  removingFilename: string | null;
 }
 
 function toUploadedItem(file: UploadFile): UploadedItem | null {
@@ -54,15 +56,18 @@ export function ChatComposer({
   onCancel,
   onNewSession,
   onQueryChange,
+  onRemoveAttachment,
   onStagedItemsChange,
   onSubmit,
   onUpload,
   query,
   stagedItems,
-  uploadedItems
+  uploadedItems,
+  removingFilename
 }: ChatComposerProps) {
   const hasStagedFiles = stagedItems.length > 0;
   const canSubmit = query.trim().length > 0;
+  const isRemovingAttachment = removingFilename !== null;
 
   function handleAttachmentChange(fileList: UploadFile[]) {
     const nextItems = uniqueUploadedItems(
@@ -88,7 +93,17 @@ export function ChatComposer({
           {uploadedItems.map((item) => (
             <span className="attachment-pill" key={`${item.uid}-${item.name}`}>
               <PaperClipOutlined aria-hidden />
-              {item.name}
+              <span className="attachment-name">{item.name}</span>
+              <Button
+                aria-label={`移除附件 ${item.name}`}
+                disabled={isRunning || isUploading || isRemovingAttachment}
+                loading={removingFilename === item.name}
+                onClick={() => void onRemoveAttachment(item.name)}
+                size="small"
+                type="text"
+              >
+                移除
+              </Button>
             </span>
           ))}
         </div>
@@ -109,7 +124,7 @@ export function ChatComposer({
       <div className="composer-shell">
         <textarea
           aria-label="研搜任务"
-          disabled={isRunning}
+          disabled={isRunning || isRemovingAttachment}
           onChange={(event) => onQueryChange(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -127,6 +142,7 @@ export function ChatComposer({
               <Button
                 aria-label="新建会话"
                 className="composer-icon-button"
+                disabled={isRemovingAttachment}
                 icon={<PlusOutlined />}
                 onClick={onNewSession}
                 shape="circle"
@@ -145,7 +161,7 @@ export function ChatComposer({
                 <Button
                   aria-label="选择附件"
                   className="composer-icon-button"
-                  disabled={isRunning || isUploading}
+                  disabled={isRunning || isUploading || isRemovingAttachment}
                   icon={<PaperClipOutlined />}
                   shape="circle"
                 />
@@ -157,7 +173,7 @@ export function ChatComposer({
             <Button
               aria-label={isRunning ? "取消当前任务" : "发送任务"}
               className={isRunning ? "send-button send-button--cancel" : "send-button"}
-              disabled={isRunning ? isCancelling : !canSubmit}
+              disabled={isRunning ? isCancelling : !canSubmit || isRemovingAttachment}
               icon={isRunning ? <StopOutlined /> : <SendOutlined />}
               loading={isCancelling}
               onClick={isRunning ? onCancel : onSubmit}
