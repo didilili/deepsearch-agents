@@ -40,6 +40,12 @@ export interface UploadResponse {
   files: string[];
 }
 
+export interface RemoveUploadResponse {
+  status: "removed";
+  filename: string;
+  work_copy: "not_found" | "removed" | "kept_modified";
+}
+
 export interface OutputFile {
   name: string;
   type: "file" | string;

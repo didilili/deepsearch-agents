@@ -21,6 +21,10 @@ def resolve_path(filename: str, session_dir: Optional[str] = None) -> str:
     path = Path(filename)
     path_str = filename.replace("\\", "/")
 
+    # 在任何兼容路径转换前拒绝父目录跳转，避免后续前缀修正掩盖越界输入。
+    if ".." in Path(path_str).parts:
+        raise ValueError("不允许使用父目录路径")
+
     # 大模型常返回 /workspace、/mnt/data 这类沙箱路径，本地项目需要先剥离虚拟前缀
     for prefix in ["/workspace", "/mnt/data", "/home/user"]:
         if path_str.startswith(prefix):
@@ -29,11 +33,9 @@ def resolve_path(filename: str, session_dir: Optional[str] = None) -> str:
             path_str = str(path).replace("\\", "/")
             break
 
-    # updated/ 用于存放用户上传文件，应优先按项目根目录下的真实上传路径解析
-    if "updated/" in path_str:
-        idx = path_str.find("updated/")
-        relative_part = path_str[idx:]
-        return str(Path(relative_part).resolve())
+    # 工具只能通过会话工作副本读取附件，不能绕过边界直接访问上传暂存目录。
+    if "updated" in Path(path_str).parts:
+        raise ValueError("不允许访问上传暂存路径")
 
     if not session_dir:
         return str(path.resolve())
@@ -55,19 +57,22 @@ def resolve_path(filename: str, session_dir: Optional[str] = None) -> str:
         except Exception:
             pass
 
-        # 真实绝对路径且不在 session_dir 中时保持原样，避免误改外部资源路径
-        return str(full_path)
+        raise ValueError("不允许访问当前会话目录之外的文件")
 
     parts = path.parts
 
     # 避免模型把 session 名或 output 前缀重复拼到当前会话目录里
     if session_name in parts:
-        return str(session_path / path.name)
+        index = parts.index(session_name)
+        path = Path(*parts[index + 1 :])
 
-    if parts and parts[0] == "output":
-        return str(session_path / path.name)
+    elif parts and parts[0] == "output":
+        path = Path(*parts[1:])
 
-    return str(session_path / path)
+    target_path = (session_path / path).resolve()
+    if not target_path.is_relative_to(session_path):
+        raise ValueError("不允许访问当前会话目录之外的文件")
+    return str(target_path)
 
 
 def _fix_nested_session_path(
@@ -81,5 +86,12 @@ def _fix_nested_session_path(
     parts = full_path.parts
     for index in range(len(parts) - 1):
         if parts[index] == session_name and parts[index + 1] == session_name:
-            return str(session_path / full_path.name)
-    return str(full_path)
+            relative_path = Path(*parts[index + 2 :])
+            target_path = (session_path / relative_path).resolve()
+            break
+    else:
+        target_path = full_path.resolve()
+
+    if not target_path.is_relative_to(session_path):
+        raise ValueError("不允许访问当前会话目录之外的文件")
+    return str(target_path)
