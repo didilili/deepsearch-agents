@@ -24,10 +24,17 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.agent.main_agent import run_deep_agent
+from app.api.attachment_utils import (
+    remove_attachment,
+    session_directory,
+    validate_filename,
+    validate_path_component,
+)
 from app.api.monitor import manager
 
 @asynccontextmanager
@@ -156,19 +163,55 @@ async def upload_files(files: List[UploadFile] = File(...), thread_id: str = For
         files (List[UploadFile]): 文件对象列表。
         thread_id (str): 关联的任务会话 ID。
     """
+    try:
+        validate_path_component(thread_id, "会话编号")
+        filenames = [validate_filename(file.filename or "") for file in files]
+        target_dir = session_directory(updated_dir, thread_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     # 上传文件先按会话隔离保存，避免不同任务读取到彼此的附件
-    target_dir = updated_dir / f"session_{thread_id}"
     target_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
-    for file in files:
-        file_path = target_dir / file.filename
+    for file, filename in zip(files, filenames):
+        file_path = (target_dir / filename).resolve()
+        if not file_path.is_relative_to(target_dir):
+            raise HTTPException(status_code=400, detail="附件路径超出允许范围")
         # 直接复制文件流，避免大文件一次性读入内存
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        saved_files.append(file.filename)
+        saved_files.append(filename)
 
     return {"status": "uploaded", "files": saved_files}
+
+
+@app.delete("/api/upload")
+async def remove_uploaded_file(thread_id: str, filename: str):
+    task = active_tasks.get(thread_id)
+    if task and not task.done():
+        raise HTTPException(status_code=409, detail="任务执行期间不能移除附件")
+
+    try:
+        result = await run_in_threadpool(
+            remove_attachment,
+            updated_dir,
+            output_dir,
+            thread_id,
+            filename,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except IsADirectoryError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    return {
+        "status": "removed",
+        "filename": result.filename,
+        "work_copy": result.work_copy,
+    }
 
 
 @app.get("/api/download")

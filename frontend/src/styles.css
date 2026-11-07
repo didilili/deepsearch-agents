@@ -1707,6 +1707,16 @@ textarea {
   white-space: nowrap;
 }
 
+.attachment-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-pill .ant-btn {
+  flex: none;
+}
+
 .attachment-pill--pending {
   border-color: rgba(255, 200, 87, 0.3);
   background: rgba(255, 200, 87, 0.08);

@@ -1,5 +1,11 @@
 import { API_BASE_URL } from "./config";
-import type { CancelTaskResponse, FileListResponse, TaskResponse, UploadResponse } from "../types";
+import type {
+  CancelTaskResponse,
+  FileListResponse,
+  RemoveUploadResponse,
+  TaskResponse,
+  UploadResponse
+} from "../types";
 
 function apiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
@@ -54,6 +60,16 @@ export async function uploadSessionFiles(
     method: "POST",
     body: formData
   });
+}
+
+export async function removeSessionFile(
+  threadId: string,
+  filename: string
+): Promise<RemoveUploadResponse> {
+  const url = new URL(apiUrl("/api/upload"));
+  url.searchParams.set("thread_id", threadId);
+  url.searchParams.set("filename", filename);
+  return requestJson<RemoveUploadResponse>(url, { method: "DELETE" });
 }
 
 export async function listSessionFiles(path: string): Promise<FileListResponse> {
